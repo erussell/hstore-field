@@ -1,104 +1,110 @@
-# hstore_field
+# hstore-field
 
-hstore_field is a niche library which integrates the `hstore`_ extension of PostgreSQL into Django,
-assuming one is using Django 1.2+, PostgreSQL 9.0+, and Psycopg 2.3+.
+hstore-field is a library which integrates the `[hstore](http://www.postgresql.org/docs/9.0/interactive/hstore.html)` 
+extension of PostgreSQL into Django, assuming one is using Django 1.3+, PostgreSQL 9.0+, and Psycopg 2.3+.
 
-Limitations
-===========
+hstore-field draws inspiration from [jordanm/django-hstore](http://github.com/jordanm/django-hstore)
+and [niwibe/django-orm-extensions](https://github.com/niwibe/django-orm-extensions), but 
+it offers several advantages over those libraries:
 
-- Due to how Django implements its ORM, you will need to use the custom ``postgresql_psycopg2`` backend
-  defined in this package, which naturally will prevent you from dropping in other django extensions
-  which require a custom backend (unless you fork and combine).
-- PostgreSQL's implementation of hstore has no concept of type; it stores a mapping of string keys to
-  string values. This library makes no attempt to coerce keys or values to strings.
+ 1. Does not require a custom database backend (at the cost of not supporting indexes on
+    hstore fields)
+ 1. Is fully compatable with PostGIS and GeoDjango
+ 1. Supports range lookup types in queries (i.e., `__lt`, `__gt`, etc...)
 
-Running the tests
-=================
+## Limitations
 
-Assuming one has the dependencies installed as well as nose, and a PostgreSQL 9.0+ server up and running::
+- Because we're not using a custom database backend, hstore-field does not support indexes 
+  on hstore fields.
+- Only numbers, strings, and dates may be stored in an hstore dictionary. Hstore-field will 
+  convert numbers and dates to strings for you when you write to the field, but it will not 
+  convert them back into their original types when the hstore dictionary is retrieved from 
+  the database.
+- Hstore-field will automatically try to install configure hstore on any database you connect 
+  to, using the `connection_created` signal. If you connect to multiple databases, this could
+  present a problem.
 
-    DB_USER=<username> HSTORE_SQL=<path-to-contrib/hstore.sql> ./runtests
+## Running the tests
 
-Usage
-=====
+    you$ python manage.py test test_hstore_field 
+    
+  For this to work
+  1. hstore must be installed in your PostgreSQL contrib folder
+  1. If you are running PostgreSQL 9.0, the directory containing `pg_config` must be on your `PATH`
 
-First, update your settings module to specify the custom database backend::
+## Usage
 
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django_hstore.postgresql_psycopg2',
-            ...
-        }
-    }
-
-The library provides three principal classes:
-
-``django_hstore.hstore.DictionaryField``
-    An ORM field which stores a mapping of string key/value pairs in an hstore column.
-``django_hstore.hstore.ReferencesField``
-    An ORM field which builds on DictionaryField to store a mapping of string keys to
-    django object references, much like ForeignKey.
-``django_hstore.hstore.Manager``
-    An ORM manager which provides much of the query functionality of the library.
-
-Model definition is straightforward::
+Model definition is straightforward:
 
     from django.db import models
-    from django_hstore import hstore
+    from hstore_field import fields
 
-    class Something(models.Model):
-        name = models.CharField(max_length=32)
-        data = hstore.DictionaryField(db_index=True)
-        objects = hstore.Manager()
+    class Item (models.Model):
+        name = models.CharField(max_length=64)
+        data = fields.HStoreField()
+        objects = fields.HStoreManager()
 
-        def __unicode__(self):
-            return self.name
+Or, for model classes that use GeoDjango:
 
-You then treat the ``data`` field as simply a dictionary of string pairs::
+    from django.contrib.gis.db import models
+    from hstore_field import fields
+    
+    class GeoItem (models.Model):
+        name = models.CharField(max_length=64)
+        point = models.PointField(null=True)
+        data = fields.HStoreField()
+        objects = fields.HStoreGeoManager()
 
-    instance = Something.objects.create(name='something', data={'a': '1', 'b': '2'})
+You then treat the `data` field as a dictionary of string pairs:
+
+    instance = Item.objects.create(name='something', data={'a': '1', 'b': '2'})
     assert instance.data['a'] == '1'
 
-    empty = Something.objects.create(name='empty')
+    empty = Item.objects.create(name='empty')
     assert empty.data == {}
 
     empty.data['a'] = '1'
     empty.save()
-    assert Something.objects.get(name='something').data['a'] == '1'
+    assert Item.objects.get(name='something').data['a'] == '1'
 
-You can issue indexed queries against hstore fields::
+You can issue queries against hstore fields:
 
     # equivalence
-    Something.objects.filter(data={'a': '1', 'b': '2'})
+    Item.objects.filter(data={'a': '1', 'b': '2'})
 
     # subset by key/value mapping
-    Something.objects.filter(data__contains={'a': '1'})
+    Item.objects.filter(data__contains={'a': '1'})
 
     # subset by list of keys
-    Something.objects.filter(data__contains=['a', 'b'])
+    Item.objects.filter(data__contains=['a', 'b'])
 
     # subset by single key
-    Something.objects.filter(data__contains='a')
+    Item.objects.filter(data__contains='a')
+    
+    # subset by list of values
+    Item.objects.filter(data__in=['a', ['1', '2']])
 
-You can also take advantage of some db-side functionality by using the manager::
+You can also issue range queries against hstore fields:
+    
+    # subset by range query using integer
+    Item.objects.filter(data__lt=['a', 1])
+    
+    # subset by range query using float
+    Item.objects.filter(data__lt=['a', 1.1])
 
-    # identify the keys present in an hstore field
-    >>> Something.objects.hkeys(id=instance.id, attr='data')
-    ['a', 'b']
+    # subset by range query as timestamp
+    Item.objects.filter(data__lt=['a', datetime.datetime(2012, 1, 1, 0, 15)])
+    
+    # subset by range query as date
+    Item.objects.filter(data__lt=['a', datetime.date(2012, 1, 1)])
+    
+    # subset by range query as time
+    Item.objects.filter(data__lt=['a', datetime.time(0, 15)])
+    
+Range queries are not especially fast, because they require a table scan and for every 
+record's data->a value to be cast from string to another type. However, it is likely to
+be much faster than shipping the entire table to the application layer as Django model
+objects and filtering it there.
 
-    # peek at a a named value within an hstore field
-    >>> Something.objects.hpeek(id=instance.id, attr='data', key='a')
-    '1'
-
-    # do the same, after filter
-    >>> Something.objects.filter(id=instance.id).hpeek(attr='data', key='a')
-    '1'
-
-    # remove a key/value pair from an hstore field
-    >>> Something.objects.filter(name='something').hremove('data', 'b')
-
-The hstore methods on manager pass all keyword arguments aside from ``attr`` and ``key``
-to ``.filter()``.
-
-.. _hstore: http://www.postgresql.org/docs/9.0/interactive/hstore.html
-
+Support for indexing hstore values as numbers and/or dates is planned for a future 
+release.
