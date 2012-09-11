@@ -56,6 +56,8 @@ class HStoreField (models.Field):
     _attribute_class = HStoreDictionary
     _descriptor_class = HStoreDescriptor
     
+    __metaclass__ = models.SubfieldBase
+    
     def formfield (self, **params):
         params['form_class'] = forms.HstoreField
         return super(HStoreField, self).formfield(**params)
@@ -67,16 +69,22 @@ class HStoreField (models.Field):
     def db_type (self, connection=None):
         return 'hstore'
     
-    def get_db_prep_save (self, value, connection):
-        if value:
+    def to_python(self, value):
+        if isinstance(value, dict):
+            for k,v in value.iteritems():
+                value[k] = forms.to_hstore(v)    
+        return value or {}
+    
+    def get_prep_value (self, value):
+        if not value:
+            return {}
+        elif isinstance(value, dict):
             result = {}
             for k,v in value.iteritems():
                 result[k] = forms.to_hstore(v)    
             return result
-        return {}
-    
-    def to_python (self, value):
-        return value or {}
+        else:
+            return value
 
 class HStoreManager (models.Manager):
     

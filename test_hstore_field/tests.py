@@ -19,15 +19,13 @@ class HStoreTest (test.TestCase):
     def test_date_encoding (self):
         for model in (models.Item, models.GeoItem):
             d = datetime.datetime.now()
-            model.objects.create(name='a', data={'a': d})
-            a = model.objects.get(name='a')
+            a = model.objects.create(name='a', data={'a': d})
             self.assertEqual(a.data['a'], d.isoformat())
     
     def test_nubmer_encoding (self):
         for model in (models.Item, models.GeoItem):
             x, y = 10, 10.25
-            model.objects.create(name='a', data={'x': x, 'y': y})
-            a = model.objects.get(name='a')
+            a = model.objects.create(name='a', data={'x': x, 'y': y})
             self.assertEqual(a.data['x'], str(x))
             self.assertEqual(a.data['y'], str(y))
     
