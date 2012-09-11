@@ -1,6 +1,6 @@
 # hstore-field
 
-hstore-field is a library which integrates the `[hstore](http://www.postgresql.org/docs/9.0/interactive/hstore.html)` 
+hstore-field is a library which integrates the [`hstore`](http://www.postgresql.org/docs/9.0/interactive/hstore.html)
 extension of PostgreSQL into Django, assuming one is using Django 1.3+, PostgreSQL 9.0+, and Psycopg 2.3+.
 
 hstore-field draws inspiration from [jordanm/django-hstore](http://github.com/jordanm/django-hstore)
