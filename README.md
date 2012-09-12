@@ -31,13 +31,15 @@ but it offers several advantages over those libraries:
   problematic, because South cannot emit the correct SQL for the default. One
   workaround is to add the column by putting the SQL directly in the migration
     
-```python
+  ```python
 def forwards(self, orm):
     db.execute('ALTER TABLE "[table]" ADD COLUMN "[column]" hstore NOT NULL DEFAULT hstore(array[]::varchar[]);')
-```
+  ```
   
   This doesn't strike me as being too ugly of a hack, because the hstore 
-  extension is specific to PostgreSQL, anyway. 
+  extension is specific to PostgreSQL, anyway. An alternative work-around
+  is to add the field with `null=True`, populate the field, then set 
+  `null=False`.
 
 ## Running the tests
 
