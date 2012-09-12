@@ -31,17 +31,19 @@ but it offers several advantages over those libraries:
   problematic, because South cannot emit the correct SQL for the default. One
   workaround is to add the column by putting the SQL directly in the migration
     
-  ```
+```python
 def forwards(self, orm):
     db.execute('ALTER TABLE "[table]" ADD COLUMN "[column]" hstore NOT NULL DEFAULT hstore(array[]::varchar[]);')
-  ```
+```
   
   This doesn't strike me as being too ugly of a hack, because the hstore 
   extension is specific to PostgreSQL, anyway. 
 
 ## Running the tests
 
-    $ python manage.py test test_hstore_field 
+```
+$ python manage.py test test_hstore_field 
+```
     
   For this to work
   1. hstore must be installed in your PostgreSQL contrib folder
@@ -52,75 +54,85 @@ def forwards(self, orm):
 
 Model definition is straightforward:
 
-    from django.db import models
-    from hstore_field import fields
+```python
+from django.db import models
+from hstore_field import fields
 
-    class Item (models.Model):
-        name = models.CharField(max_length=64)
-        data = fields.HStoreField()
-        objects = fields.HStoreManager()
+class Item (models.Model):
+    name = models.CharField(max_length=64)
+    data = fields.HStoreField()
+    objects = fields.HStoreManager()
+```
 
 Or, for model classes that use GeoDjango:
 
-    from django.contrib.gis.db import models
-    from hstore_field import fields
-    
-    class GeoItem (models.Model):
-        name = models.CharField(max_length=64)
-        point = models.PointField(null=True)
-        data = fields.HStoreField()
-        objects = fields.HStoreGeoManager()
+```python
+from django.contrib.gis.db import models
+from hstore_field import fields
+
+class GeoItem (models.Model):
+    name = models.CharField(max_length=64)
+    point = models.PointField(null=True)
+    data = fields.HStoreField()
+    objects = fields.HStoreGeoManager()
+```
 
 You then treat the `data` field as a dictionary of string pairs:
 
-    instance = Item.objects.create(name='something', data={'a': '1', 'b': '2'})
-    assert instance.data['a'] == '1'
+```python
+instance = Item.objects.create(name='something', data={'a': '1', 'b': '2'})
+assert instance.data['a'] == '1'
 
-    empty = Item.objects.create(name='empty')
-    assert empty.data == {}
+empty = Item.objects.create(name='empty')
+assert empty.data == {}
 
-    empty.data['a'] = '1'
-    empty.save()
-    assert Item.objects.get(name='something').data['a'] == '1'
+empty.data['a'] = '1'
+empty.save()
+assert Item.objects.get(name='something').data['a'] == '1'
+```
 
 You can issue queries against hstore fields:
 
-    # equivalence
-    Item.objects.filter(data={'a': '1', 'b': '2'})
+```python
+# equivalence
+Item.objects.filter(data={'a': '1', 'b': '2'})
 
-    # subset by key/value mapping
-    Item.objects.filter(data__contains={'a': '1'})
+# subset by key/value mapping
+Item.objects.filter(data__contains={'a': '1'})
 
-    # subset by list of keys
-    Item.objects.filter(data__contains=['a', 'b'])
+# subset by list of keys
+Item.objects.filter(data__contains=['a', 'b'])
 
-    # subset by single key
-    Item.objects.filter(data__contains='a')
-    
-    # subset by list of values
-    Item.objects.filter(data__in=['a', ['1', '2']])
+# subset by single key
+Item.objects.filter(data__contains='a')
+
+# subset by list of values
+Item.objects.filter(data__in=['a', ['1', '2']])
+```
 
 You can also issue range queries against hstore fields:
-    
-    # subset by range query using integer
-    Item.objects.filter(data__lt=['a', 1])
-    
-    # subset by range query using float
-    Item.objects.filter(data__lt=['a', 1.1])
 
-    # subset by range query as timestamp
-    Item.objects.filter(data__lt=['a', datetime.datetime(2012, 1, 1, 0, 15)])
+```python
+# subset by range query using integer
+Item.objects.filter(data__lt=['a', 1])
     
-    # subset by range query as date
-    Item.objects.filter(data__lt=['a', datetime.date(2012, 1, 1)])
-    
-    # subset by range query as time
-    Item.objects.filter(data__lt=['a', datetime.time(0, 15)])
+# subset by range query using float
+Item.objects.filter(data__lt=['a', 1.1])
+
+# subset by range query as timestamp
+Item.objects.filter(data__lt=['a', datetime.datetime(2012, 1, 1, 0, 15)])
+
+# subset by range query as date
+Item.objects.filter(data__lt=['a', datetime.date(2012, 1, 1)])
+
+# subset by range query as time
+Item.objects.filter(data__lt=['a', datetime.time(0, 15)])
+```
     
 Range queries are not especially fast, because they require a table scan and for 
 every record's data->a value to be cast from string to another type. However, it 
-is likely to be much faster than shipping the entire table to the application 
-layer as Django model objects and filtering it there.
+is much faster than shipping the entire table to the application layer as Django 
+model objects and filtering it there (3-6 times faster in limited testing).
 
 Support for indexing hstore values as numbers and/or dates is planned for a 
 future release.
