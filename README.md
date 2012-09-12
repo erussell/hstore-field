@@ -1,36 +1,52 @@
 # hstore-field
 
-hstore-field is a library which integrates the [`hstore`](http://www.postgresql.org/docs/9.0/interactive/hstore.html)
-extension of PostgreSQL into Django, assuming one is using Django 1.3+, PostgreSQL 9.0+, and Psycopg 2.3+.
+hstore-field is a library which integrates the 
+[`hstore`](http://www.postgresql.org/docs/9.0/interactive/hstore.html)
+extension of PostgreSQL into Django, assuming one is using Django 1.3+, 
+PostgreSQL 9.0+, and Psycopg 2.3+.
 
-hstore-field draws inspiration from [jordanm/django-hstore](http://github.com/jordanm/django-hstore)
-and [niwibe/django-orm-extensions](https://github.com/niwibe/django-orm-extensions), but 
-it offers several advantages over those libraries:
+hstore-field draws inspiration from 
+[jordanm/django-hstore](http://github.com/jordanm/django-hstore) and 
+[niwibe/django-orm-extensions](https://github.com/niwibe/django-orm-extensions), 
+but it offers several advantages over those libraries:
 
- 1. Does not require a custom database backend (at the cost of not supporting indexes on
-    hstore fields)
+ 1. Does not require a custom database backend (at the cost of not supporting 
+    indexes on hstore fields)
  1. Is fully compatable with PostGIS and GeoDjango
  1. Supports range lookup types in queries (i.e., `__lt`, `__gt`, etc...)
+ 1. Mostly compatible with South
 
 ## Limitations
 
-- Because we're not using a custom database backend, hstore-field does not support indexes 
-  on hstore fields.
-- Only numbers, strings, and dates may be stored in an hstore dictionary. Hstore-field will 
-  convert numbers and dates to strings for you when you write to the field, but it will not 
-  convert them back into their original types when the hstore dictionary is retrieved from 
-  the database.
-- Hstore-field will automatically try to install configure hstore on any database you connect 
-  to, using the `connection_created` signal. If you connect to multiple databases, this could
-  present a problem.
+- Because we're not using a custom database backend, hstore-field does not 
+  support indexes on hstore fields.
+- Only numbers, strings, and dates may be stored in an hstore dictionary. 
+  Hstore-field will convert numbers and dates to strings for you when you write 
+  to the field, but it will not convert them back into their original types when 
+  the hstore dictionary is retrieved from the database.
+- Hstore-field will automatically try to install configure hstore on any 
+  database you connect to, using the `connection_created` signal. If you connect 
+  to multiple databases, this could present a problem.
+- Adding an HStoreField with `null=False` to an existing model using South is 
+  problematic, because South cannot emit the correct SQL for the default. One
+  workaround is to add the column by putting the SQL directly in the migration
+    
+    ```
+    def forwards(self, orm):
+        db.execute('ALTER TABLE "[table]" ADD COLUMN "[column]" hstore NOT NULL DEFAULT hstore(array[]::varchar[]);')
+    ```
+  
+  This doesn't strike me as being too ugly of a hack, because the hstore 
+  extension is specific to PostgreSQL, anyway. 
 
 ## Running the tests
 
-    you$ python manage.py test test_hstore_field 
+    $ python manage.py test test_hstore_field 
     
   For this to work
   1. hstore must be installed in your PostgreSQL contrib folder
-  1. If you are running PostgreSQL 9.0, the directory containing `pg_config` must be on your `PATH`
+  1. If you are running PostgreSQL 9.0, the directory containing `pg_config` 
+     must be on your `PATH`
 
 ## Usage
 
@@ -101,10 +117,10 @@ You can also issue range queries against hstore fields:
     # subset by range query as time
     Item.objects.filter(data__lt=['a', datetime.time(0, 15)])
     
-Range queries are not especially fast, because they require a table scan and for every 
-record's data->a value to be cast from string to another type. However, it is likely to
-be much faster than shipping the entire table to the application layer as Django model
-objects and filtering it there.
+Range queries are not especially fast, because they require a table scan and for 
+every record's data->a value to be cast from string to another type. However, it 
+is likely to be much faster than shipping the entire table to the application 
+layer as Django model objects and filtering it there.
 
-Support for indexing hstore values as numbers and/or dates is planned for a future 
-release.
+Support for indexing hstore values as numbers and/or dates is planned for a 
+future release.
