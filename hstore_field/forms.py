@@ -8,6 +8,8 @@ from django.utils.safestring import mark_safe
 from django.utils.html import conditional_escape
 
 def to_hstore (obj):
+    if obj is None:
+        return ''
     if isinstance(obj, datetime.datetime) or isinstance(obj, datetime.date) or isinstance(obj, datetime.time):
         return obj.isoformat()
     elif isinstance(obj, numbers.Number):
