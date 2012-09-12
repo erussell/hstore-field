@@ -31,10 +31,10 @@ but it offers several advantages over those libraries:
   problematic, because South cannot emit the correct SQL for the default. One
   workaround is to add the column by putting the SQL directly in the migration
     
-    ```
-    def forwards(self, orm):
-        db.execute('ALTER TABLE "[table]" ADD COLUMN "[column]" hstore NOT NULL DEFAULT hstore(array[]::varchar[]);')
-    ```
+  ```
+def forwards(self, orm):
+    db.execute('ALTER TABLE "[table]" ADD COLUMN "[column]" hstore NOT NULL DEFAULT hstore(array[]::varchar[]);')
+  ```
   
   This doesn't strike me as being too ugly of a hack, because the hstore 
   extension is specific to PostgreSQL, anyway. 
