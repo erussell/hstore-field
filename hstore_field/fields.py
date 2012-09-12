@@ -18,9 +18,8 @@ def register_hstore_on_connection_creation (connection, sender, *args, **kwargs)
             cursor = connection.cursor()
             with open(hstore_sql, 'U') as fp:
                 for statement in statements.split(fp.read().decode(settings.FILE_CHARSET)):
-                    print statement
-                    statement = re.sub(ur"--.*([\n\Z]|$)", "", statement)
-                    if statement.strip():
+                    statement = re.sub(ur"--.*([\n\Z]|$)", "", statement).strip()
+                    if statement:
                         cursor.execute(statement + u";")
         else:
             cursor = connection.cursor()
@@ -85,6 +84,12 @@ class HStoreField (models.Field):
             return result
         else:
             return value
+    
+    def south_field_triple (self):
+        from south.modelsinspector import introspector
+        field_class = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
+        args, kwargs = introspector(self)
+        return (field_class, args, kwargs)
 
 class HStoreManager (models.Manager):
     
