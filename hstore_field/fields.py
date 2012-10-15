@@ -1,9 +1,12 @@
-import re, os, psycopg2, subprocess
-from django.db.backends.signals import connection_created
+import re
+import os
+import psycopg2
+import subprocess
 from django.conf import settings
 from django.contrib.gis.db import models
+from django.db.backends.signals import connection_created
 from psycopg2.extras import register_hstore, HstoreAdapter
-from . import forms, query
+from . import forms
 
 def register_hstore_on_connection_creation (connection, sender, *args, **kwargs):
     oid = HstoreAdapter.get_oids(connection.connection)
@@ -90,13 +93,3 @@ class HStoreField (models.Field):
         field_class = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
         args, kwargs = introspector(self)
         return (field_class, args, kwargs)
-
-class HStoreManager (models.Manager):
-    
-    def get_query_set(self):
-        return query.HStoreQuerySet(self.model, using=self._db)
-
-class HStoreGeoManager (models.GeoManager):
-    
-    def get_query_set (self):
-        return query.HStoreGeoQuerySet(self.model, using=self._db)

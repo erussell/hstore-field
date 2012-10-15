@@ -1,89 +1,143 @@
 import datetime
-from django import VERSION
-from django.db.models.query import QuerySet
-from django.db.models.sql.query import Query
-from django.db.models.sql.where import WhereNode, EmptyShortCircuit
-from django.db.models.sql.datastructures import EmptyResultSet
-from django.contrib.gis.db.models.query import GeoQuerySet
-from django.contrib.gis.db.models.sql.query import GeoQuery
-from django.contrib.gis.db.models.sql.where import GeoWhereNode
+import numbers
+from django.db.models.fields import FieldDoesNotExist
+from django.utils import tree
+from django.core.exceptions import FieldError
+from django.db.models.sql.constants import LOOKUP_SEP
 
-def make_hstore_atom (node, child, qn, connection):
-    lvalue, lookup_type, value_annot, param = child
-    kwargs = VERSION[:2] >= (1, 3) and {'connection': connection} or {}
-    if lvalue.field.db_type(**kwargs) == 'hstore':
-        try:
-            lvalue, params = lvalue.process(lookup_type, param, connection)
-        except EmptyShortCircuit:
-            raise EmptyResultSet
-        field = node.sql_for_columns(lvalue, qn, connection)
-        if lookup_type == 'exact':
-            if isinstance(param, dict):
-                return ('%s = %%s' % field, [param])
+class HStoreConstraint ():
+    
+    value_operators = { 'exact': '=', 'in': 'IN', 'lt': '<', 'lte': '<=', 'gt': '>', 'gte': '>=' }
+    
+    def __init__(self, alias, field, value, lookup_type, key=None):
+        
+        self.lvalue = '%s'
+        self.alias = alias
+        self.field = field
+        self.values = [value]
+        
+        if lookup_type == 'contains':
+            if isinstance(value, basestring):
+                self.operator = '?'
+            elif isinstance(value, (list, tuple)):
+                self.operator = '?&'
+                self.values = [list(value)]
             else:
                 raise ValueError('invalid value')
-        elif lookup_type == 'contains':
-            if isinstance(param, dict):
-                return ('%s @> %%s' % field, [param])
-            elif isinstance(param, (list, tuple)):
-                if param:
-                    return ('%s ?& %%s' % field, [param])
-                else:
-                    raise ValueError('invalid value')
-            elif isinstance(param, basestring):
-                return ('%s ? %%s' % field, [param])
+        elif lookup_type in self.value_operators:
+            self.operator = self.value_operators[lookup_type]
+            if self.operator == 'IN':
+                test_value = value[0]
+                self.values = [tuple(value)]
+            else:
+                test_value = value
+            if isinstance(test_value, datetime.datetime):
+                cast_type = 'timestamp'
+            elif isinstance(test_value, datetime.date):
+                cast_type = 'date'
+            elif isinstance(test_value, datetime.time):
+                cast_type = 'time'
+            elif isinstance(test_value, int):
+                cast_type = 'integer'
+            elif isinstance(test_value, numbers.Number):
+                cast_type = 'double precision'
+            elif isinstance(test_value, basestring):
+                cast_type = None
             else:
                 raise ValueError('invalid value')
-        elif lookup_type == 'in':
-            if isinstance(param, (list, tuple)):
-                key, values = param
-                return ("%s->'%s' IN %%s" % (field, key), [tuple(values)])
+            if cast_type:
+                self.lvalue = "CAST(NULLIF(%%s->'%s','') AS %s)" %  (key, cast_type)
             else:
-                raise ValueError('invalid value')
-        elif lookup_type in ['lt', 'lte', 'gt', 'gte']:
-            if isinstance(param, (list, tuple)):
-                key, value = param
-                operator = ['<', '<=', '>', '>='][('lt', 'lte', 'gt', 'gte').index(lookup_type)]
-                if isinstance(value, datetime.datetime):
-                    cast_type = 'timestamp'
-                elif isinstance(value, datetime.date):
-                    cast_type = 'date'
-                elif isinstance(value, datetime.time):
-                    cast_type = 'time'
-                elif isinstance(value, int):
-                    cast_type = 'integer'
-                else:
-                    cast_type = 'double precision'
-                return ("CAST(%s->'%s' AS %s) %s %%s" % (field, key, cast_type, operator), [value])
-            else:
-                raise ValueError('invalid value')
+                self.lvalue = "%%s->'%s'" % key
         else:
             raise TypeError('invalid lookup type')
-    else:
-        return None
+    
+    def sql_for_column (self, qn, connection):
+        if self.alias:
+            return '%s.%s' % (qn(self.alias), qn(self.field))
+        else:
+            return qn(self.field)
+    
+    def as_sql (self, qn=None, connection=None):
+        lvalue = self.lvalue % self.sql_for_column(qn, connection)
+        expr = '%s %s %%s' % (lvalue, self.operator)
+        return (expr, self.values)
 
-class HStoreWhereNode (WhereNode):
-    def make_atom(self, child, qn, connection):
-        return make_hstore_atom(self, child, qn, connection) or super(HStoreWhereNode, self).make_atom(child, qn, connection)
+class HQ (tree.Node):
+    
+    AND = 'AND'
+    OR = 'OR'
+    default = AND
+    query_terms = ['exact', 'lt', 'lte', 'gt', 'gte', 'in', 'contains']
+    
+    def __init__ (self, **kwargs):
+        super(HQ, self).__init__(children=kwargs.items())
+    
+    def _combine (self, other, conn):
+        if not isinstance(other, HQ):
+            raise TypeError(other)
+        obj = type(self)()
+        obj.add(self, conn)
+        obj.add(other, conn)
+        return obj
 
-class HStoreGeoWhereNode (GeoWhereNode):
-    def make_atom(self, child, qn, connection):
-        return make_hstore_atom(self, child, qn, connection) or super(HStoreGeoWhereNode, self).make_atom(child, qn, connection)
+    def __or__(self, other):
+        return self._combine(other, self.OR)
 
-class HStoreQuery (Query):
-    def __init__(self, model):
-        super(HStoreQuery, self).__init__(model, HStoreWhereNode)
+    def __and__(self, other):
+        return self._combine(other, self.AND)
 
-class HStoreGeoQuery (GeoQuery):
-    def __init__(self, model):
-        super(HStoreGeoQuery, self).__init__(model, HStoreGeoWhereNode)
-
-class HStoreQuerySet (QuerySet):
-    def __init__(self, model=None, query=None, using=None):
-        query = query or HStoreQuery(model)
-        super(HStoreQuerySet, self).__init__(model=model, query=query, using=using)
-
-class HStoreGeoQuerySet (GeoQuerySet):
-    def __init__(self, model=None, query=None, using=None):
-        query = query or HStoreGeoQuery(model)
-        super(HStoreGeoQuerySet, self).__init__(model=model, query=query, using=using)
+    def __invert__(self):
+        obj = type(self)()
+        obj.add(self, self.AND)
+        obj.negate()
+        return obj
+    
+    def add_to_query (self, query, used_aliases):
+        self.add_to_node(query.where, query, used_aliases)
+    
+    def add_to_node (self, where_node, query, used_aliases):
+        for child in self.children:
+            if  isinstance(child, HQ):
+                node = query.where_class()
+                child.add_to_node(node, query, used_aliases)
+                where_node.add(node, self.connector)
+            else:
+                field, value = child
+                parts = field.split(LOOKUP_SEP)
+                if not parts:
+                    raise FieldError("Cannot parse keyword query %r" % field)
+                lookup_type = self.query_terms[0] # Default lookup type
+                num_parts = len(parts)
+                if len(parts) > 1 and parts[-1] in self.query_terms:
+                    # Traverse the lookup query to distinguish related fields from
+                    # lookup types.
+                    lookup_model = query.model
+                    for counter, field_name in enumerate(parts):
+                        try:
+                            lookup_field = lookup_model._meta.get_field(field_name)
+                        except FieldDoesNotExist:
+                            # Not a field. Bail out.
+                            lookup_type = parts.pop()
+                            break
+                        # Unless we're at the end of the list of lookups, let's attempt
+                        # to continue traversing relations.
+                        if (counter + 1) < num_parts:
+                            try:
+                                lookup_model = lookup_field.rel.to
+                            except AttributeError:
+                                # Not a related field. Bail out.
+                                lookup_type = parts.pop()
+                                break
+                if lookup_type == 'contains':
+                    key = None
+                else: 
+                    key = parts[-1]
+                    parts = parts[:-1]
+                opts = query.get_meta()
+                alias = query.get_initial_alias()
+                field, target, opts, join_list, last, extra = query.setup_joins(parts, opts, alias, True) 
+                col, alias, join_list = query.trim_joins(target, join_list, last, False, False)
+                where_node.add(HStoreConstraint(alias, col, value, lookup_type, key), self.connector)
+        if self.negated:
+            where_node.negate()
