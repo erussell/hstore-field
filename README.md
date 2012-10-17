@@ -12,9 +12,10 @@ but it offers several advantages over those libraries:
 
  1. Does not require a custom database backend (at the cost of not supporting 
     indexes on hstore fields)
- 1. Is fully compatable with PostGIS and GeoDjango
+ 1. Does not require a custom QuerySet class, making it fully compatible with 
+    GeoDjango and any other extension that does subclass QuerySet
  1. Supports range lookup types in queries (i.e., `__lt`, `__gt`, etc...)
- 1. Mostly compatible with South
+ 1. Mostly compatible with South (see limitations below for specifics)
 
 ## Limitations
 
@@ -22,8 +23,10 @@ but it offers several advantages over those libraries:
   support indexes on hstore fields.
 - Only numbers, strings, and dates may be stored in an hstore dictionary. 
   Hstore-field will convert numbers and dates to strings for you when you write 
-  to the field, but it will not convert them back into their original types when 
-  the hstore dictionary is retrieved from the database.
+  to the field, but it *will not convert them back* into their original types when 
+  the hstore dictionary is retrieved from the database. You can make a custom
+  class serialize to hstore by giving it a `to_hstore` method, which must return 
+  a string.
 - Hstore-field will automatically try to install configure hstore on any 
   database you connect to, using the `connection_created` signal. If you connect 
   to multiple databases, this could present a problem.
@@ -36,10 +39,9 @@ def forwards(self, orm):
     db.execute('ALTER TABLE "[table]" ADD COLUMN "[column]" hstore NOT NULL DEFAULT hstore(array[]::varchar[]);')
   ```
   
-  This doesn't strike me as being too ugly of a hack, because the hstore 
-  extension is specific to PostgreSQL, anyway. An alternative work-around
-  is to add the field with `null=True`, populate the field, then set 
-  `null=False`.
+  Another alternative is to add the field with `null=True`, populate the field, 
+  then set `null=False`. This is actually considered good practice in general, 
+  because default values can cause unexpected problems.
 
 ## Running the tests
 
@@ -63,20 +65,6 @@ from hstore_field import fields
 class Item (models.Model):
     name = models.CharField(max_length=64)
     data = fields.HStoreField()
-    objects = fields.HStoreManager()
-```
-
-Or, for model classes that use GeoDjango:
-
-```python
-from django.contrib.gis.db import models
-from hstore_field import fields
-
-class GeoItem (models.Model):
-    name = models.CharField(max_length=64)
-    point = models.PointField(null=True)
-    data = fields.HStoreField()
-    objects = fields.HStoreGeoManager()
 ```
 
 You then treat the `data` field as a dictionary of string pairs:
@@ -93,48 +81,64 @@ empty.save()
 assert Item.objects.get(name='something').data['a'] == '1'
 ```
 
-You can issue queries against hstore fields:
+You can issue queries against hstore keys using the `HQ` class (similar to the `Q` class)
 
 ```python
-# equivalence
-Item.objects.filter(data={'a': '1', 'b': '2'})
+from hstore_field.query import HQ
 
-# subset by key/value mapping
-Item.objects.filter(data__contains={'a': '1'})
+# return only objects whose dictionary contains a given key...
+Item.objects.filter(HQ(data__contains='a'))
 
-# subset by list of keys
-Item.objects.filter(data__contains=['a', 'b'])
+# ...or that contain all keys in a given list (or tuple)
+Item.objects.filter(HQ(data__contains=['a', 'b']))
+```
 
-# subset by single key
-Item.objects.filter(data__contains='a')
+You can also query against hstore values:
+
+```python
+# find by exact value
+Item.objects.filter(HQ(data__a='1'])) # equivalent to Item.objects.filter(HQ(data__a__exact='1']))
 
 # subset by list of values
-Item.objects.filter(data__in=['a', ['1', '2']])
-```
+Item.objects.filter(HQ(data__a__in=['1', '2']))
 
-You can also issue range queries against hstore fields:
-
-```python
 # subset by range query using integer
-Item.objects.filter(data__lt=['a', 1])
-    
+Item.objects.filter(HQ(data__a__lt=1))
+
 # subset by range query using float
-Item.objects.filter(data__lt=['a', 1.1])
+Item.objects.filter(HQ(data__a__gt=1.1))
 
 # subset by range query as timestamp
-Item.objects.filter(data__lt=['a', datetime.datetime(2012, 1, 1, 0, 15)])
+Item.objects.filter(HQ(data__a__lte=datetime.datetime(2012, 1, 1, 0, 15)))
 
 # subset by range query as date
-Item.objects.filter(data__lt=['a', datetime.date(2012, 1, 1)])
+Item.objects.filter(HQ(data__a__gte=datetime.date(2012, 1, 1)))
 
 # subset by range query as time
-Item.objects.filter(data__lt=['a', datetime.time(0, 15)])
+Item.objects.filter(HQ(data__a__lte=datetime.time(7, 15)))
 ```
-    
+
+Note that, when issuing a range query against an hstore key using a non-string 
+type, any non-null values for that key that cannot be cast to the appropriate 
+type will cause the query to fail.  
+
+`HQ` objects may be combined using `&`, `|`, and `~`, just like `Q` objects. But
+they may only be combined with other `HQ` objects, and not with any `Q` objects. 
+To combine an `HQ` object with a `Q` object, you must first wrap the `HQ` object 
+in a `Q` object. For example:
+
+```python
+Item.objects.filter(HQ(data__a__lt=10) & HQ(data__b__lt=20))     # YES!
+
+Item.objects.filter(Q(HQ(data__a__lt=10)) & Q(data__name="foo")) # YES!
+
+Item.objects.filter(HQ(data__a__lt=10) & Q(data__name="foo"))    # NO!
+```
+
 Range queries are not especially fast, because they require a table scan and for 
-every record's data->a value to be cast from string to another type. However, it 
-is much faster than shipping the entire table to the application layer as Django 
-model objects and filtering it there (3-6 times faster in limited testing).
+every record's hstore->key to be cast from string to another type. However, 
+it is much faster than shipping the entire table to the application layer as
+Django model objects and filtering them there (3-6 times faster in limited testing).
 
 Support for indexing hstore values as numbers and/or dates is planned for a 
 future release.
