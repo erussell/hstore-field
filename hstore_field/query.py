@@ -141,3 +141,10 @@ class HQ (tree.Node):
                 where_node.add(HStoreConstraint(alias, col, value, lookup_type, key), self.connector)
         if self.negated:
             where_node.negate()
+
+def add_hstore (queryset, field, key, name=None):
+    assert queryset.query.can_filter(), "Cannot change a query once a slice has been taken"
+    name = name or key
+    clone = queryset._clone()
+    clone.query.add_extra({ name: "%s -> '%s'" % (field, key) }, None, None, None, None, None)
+    return clone
