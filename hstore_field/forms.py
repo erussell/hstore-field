@@ -17,6 +17,8 @@ def to_hstore (obj):
         return str(obj)
     elif isinstance(obj, basestring):
         return obj
+    elif hasattr(obj, 'to_hstore'):
+        return obj.to_hstore()
     else:
         raise TypeError("%r is not hstore serializable" % (obj,))
 
