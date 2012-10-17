@@ -5,15 +5,16 @@ hstore-field is a library which integrates the
 extension of PostgreSQL into Django, assuming one is using Django 1.3+, 
 PostgreSQL 9.0+, and Psycopg 2.3+.
 
-hstore-field draws inspiration from 
+hstore-field draws some inspiration from 
 [jordanm/django-hstore](http://github.com/jordanm/django-hstore) and 
 [niwibe/django-orm-extensions](https://github.com/niwibe/django-orm-extensions), 
-but it offers several advantages over those libraries:
+but it uses a completely different mechanism for extending Django, which has the 
+following advantages:
 
  1. Does not require a custom database backend (at the cost of not supporting 
     indexes on hstore fields)
  1. Does not require a custom QuerySet class, making it fully compatible with 
-    GeoDjango and any other extension that does subclass QuerySet
+    GeoDjango or any other extension that does subclass QuerySet
  1. Supports range lookup types in queries (i.e., `__lt`, `__gt`, etc...)
  1. Mostly compatible with South (see limitations below for specifics)
 
