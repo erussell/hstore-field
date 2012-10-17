@@ -1,6 +1,7 @@
 from . import models
 from django import test
-from hstore_field.query import HQ
+from django.db.models import Q
+from hstore_field.query import add_hstore, HQ
 import datetime
 
 class HStoreTest (test.TestCase):
@@ -127,3 +128,15 @@ class HStoreTest (test.TestCase):
         models.Related.objects.create(item=a)
         self.assertEqual(models.Related.objects.filter(HQ(item__data__a=1)).count(), 1)
         self.assertEqual(models.Related.objects.filter(HQ(item__data__a=2)).count(), 0)
+    
+    def test_extra_query (self):
+        models.Item.objects.create(name='a', data={'a': '1', 'b': '4', 'c': '0',    'd': '2012-01-01 00:01', 'e': '2012-01-01', 'f': '00:01' })
+        item = add_hstore(models.Item.objects.all(), 'data', 'a', 'extra_a')[0]
+        self.assertEqual(item.extra_a, '1')
+        
+    def test_combine_hq (self):
+        self._create_items(models.Item)
+        self.assertEqual(models.Item.objects.filter(HQ(data__a='1') & HQ(data__a='2')).count(), 0)
+        self.assertEqual(models.Item.objects.filter(HQ(data__a='1') | HQ(data__a='2')).count(), 2)
+        self.assertEqual(models.Item.objects.filter(HQ(data__a__lt=3) & ~HQ(data__a='2')).count(), 1)
+        self.assertEqual(models.Item.objects.filter(Q(name='a') & Q(HQ(data__a='1'))).count(), 1)
