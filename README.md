@@ -36,8 +36,8 @@ following advantages:
   workaround is to add the column by putting the SQL directly in the migration
     
   ```python
-def forwards(self, orm):
-    db.execute('ALTER TABLE "[table]" ADD COLUMN "[column]" hstore NOT NULL DEFAULT hstore(array[]::varchar[]);')
+    def forwards(self, orm):
+        db.execute('ALTER TABLE "[table]" ADD COLUMN "[column]" hstore NOT NULL DEFAULT hstore(array[]::varchar[]);')
   ```
   
   Another alternative is to add the field with `null=True`, populate the field, 
