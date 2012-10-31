@@ -23,7 +23,7 @@ class HStoreConstraint ():
                 self.operator = '?&'
                 self.values = [list(value)]
             else:
-                raise ValueError('invalid value')
+                raise ValueError('invalid value %r' % value)
         elif lookup_type in self.value_operators:
             self.operator = self.value_operators[lookup_type]
             if self.operator == 'IN':
@@ -44,7 +44,7 @@ class HStoreConstraint ():
             elif isinstance(test_value, basestring):
                 cast_type = None
             else:
-                raise ValueError('invalid value')
+                raise ValueError('invalid value %r' % test_value)
             if cast_type:
                 self.lvalue = "CAST(NULLIF(%%s->'%s','') AS %s)" %  (key, cast_type)
             else:
