@@ -3,10 +3,7 @@ import os
 import psycopg2
 import subprocess
 from django.conf import settings
-try:
-    from django.contrib.gis.db import models
-except ImportError:
-    from django.db import models
+from django.db import models
 from django.db.backends.signals import connection_created
 from psycopg2.extras import register_hstore, HstoreAdapter
 from . import forms
@@ -31,7 +28,9 @@ def register_hstore_on_connection_creation (connection, sender, *args, **kwargs)
             cursor = connection.cursor()
             cursor.execute("CREATE EXTENSION hstore;")
     register_hstore(connection.connection, globally=True)
+
 connection_created.connect(register_hstore_on_connection_creation, dispatch_uid='hstore_field.register_hstore_on_connection_creation')
+
 
 class HStoreDictionary (dict):
 
@@ -39,6 +38,7 @@ class HStoreDictionary (dict):
         super(HStoreDictionary, self).__init__(value, **params)
         self.field = field
         self.instance = instance
+
 
 class HStoreDescriptor (object):
 
@@ -55,6 +55,7 @@ class HStoreDescriptor (object):
         if not isinstance(value, HStoreDictionary):
             value = self.field._attribute_class(value, self.field, instance)
         instance.__dict__[self.field.name] = value
+
 
 class HStoreField (models.Field):
 
@@ -95,4 +96,4 @@ class HStoreField (models.Field):
         from south.modelsinspector import introspector
         field_class = '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
         args, kwargs = introspector(self)
-        return (field_class, args, kwargs)
+        return field_class, args, kwargs
