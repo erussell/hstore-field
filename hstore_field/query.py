@@ -10,7 +10,7 @@ except:
 
 class HStoreConstraint ():
     
-    value_operators = { 'exact': '=', 'in': 'IN', 'lt': '<', 'lte': '<=', 'gt': '>', 'gte': '>=' }
+    value_operators = { 'exact': '=', 'iexact':'=', 'in': 'IN', 'lt': '<', 'lte': '<=', 'gt': '>', 'gte': '>=' }
     
     def __init__(self, alias, field, value, lookup_type, key=None):
         
@@ -50,6 +50,9 @@ class HStoreConstraint ():
                 raise ValueError('invalid value %r' % test_value)
             if cast_type:
                 self.lvalue = "CAST(NULLIF(%%s->'%s','') AS %s)" %  (key, cast_type)
+            elif lookup_type == 'iexact':
+                self.lvalue = "lower(%%s->'%s')" % key
+                self.values = [value.lower()]
             else:
                 self.lvalue = "%%s->'%s'" % key
         else:
@@ -71,7 +74,7 @@ class HQ (tree.Node):
     AND = 'AND'
     OR = 'OR'
     default = AND
-    query_terms = ['exact', 'lt', 'lte', 'gt', 'gte', 'in', 'contains']
+    query_terms = ['exact', 'iexact', 'lt', 'lte', 'gt', 'gte', 'in', 'contains']
     
     def __init__ (self, **kwargs):
         super(HQ, self).__init__(children=kwargs.items())

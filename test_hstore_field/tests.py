@@ -7,9 +7,9 @@ import datetime
 class HStoreTest (test.TestCase):
     
     def _create_items (self, model):
-        a = model.objects.create(name='a', data={'a': '1', 'b': '4', 'c': '0',    'd': '2012-01-01 00:01', 'e': '2012-01-01', 'f': '00:01' })
-        b = model.objects.create(name='b', data={'a': '2', 'b': '5', 'c': '0.33', 'd': '2012-01-01 01:01', 'e': '2012-01-02', 'f': '01:30' })
-        c = model.objects.create(name='c', data={'a': '3', 'b': '6', 'c': '0.66', 'd': '2012-01-02 13:30', 'e': '2012-02-02', 'f': '13:30' })
+        a = model.objects.create(name='a', data={'a': '1', 'b': '4', 'c': '0',    'd': '2012-01-01 00:01', 'e': '2012-01-01', 'f': '00:01' , 'g': 'Apple'})
+        b = model.objects.create(name='b', data={'a': '2', 'b': '5', 'c': '0.33', 'd': '2012-01-01 01:01', 'e': '2012-01-02', 'f': '01:30', 'g': 'Dog'})
+        c = model.objects.create(name='c', data={'a': '3', 'b': '6', 'c': '0.66', 'd': '2012-01-02 13:30', 'e': '2012-02-02', 'f': '13:30', 'g': 'Car'})
         return a, b, c
     
     def test_empty_instantiation (self):
@@ -140,3 +140,13 @@ class HStoreTest (test.TestCase):
         self.assertEqual(models.Item.objects.filter(HQ(data__a='1') | HQ(data__a='2')).count(), 2)
         self.assertEqual(models.Item.objects.filter(HQ(data__a__lt=3) & ~HQ(data__a='2')).count(), 1)
         self.assertEqual(models.Item.objects.filter(Q(name='a') & Q(HQ(data__a='1'))).count(), 1)
+
+    def test_iexact_query (self):
+        for model in (models.Item, models.GeoItem):
+            self._create_items(model)
+            self.assertEqual(model.objects.filter(HQ(data__g__iexact='apple')).count(), 1)
+            self.assertNotEqual(model.objects.filter(HQ(data__g='apple')).count(), 0)
+            self.assertEqual(model.objects.filter(HQ(data__g__iexact='dog')).count(), 1)
+            self.assertNotEqual(model.objects.filter(HQ(data__g='dog')).count(), 0)
+            self.assertEqual(model.objects.filter(HQ(data__g__iexact='car')).count(), 1)
+            self.assertNotEqual(model.objects.filter(HQ(data__g='car')).count(), 0)
