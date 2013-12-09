@@ -3,7 +3,10 @@ import numbers
 from django.db.models.fields import FieldDoesNotExist
 from django.utils import tree
 from django.core.exceptions import FieldError
-from django.db.models.sql.constants import LOOKUP_SEP
+try:
+    from django.db.models.sql.constants import LOOKUP_SEP
+except:
+    from django.db.models.constants import LOOKUP_SEP
 
 class HStoreConstraint ():
     
