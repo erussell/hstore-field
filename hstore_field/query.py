@@ -8,17 +8,18 @@ try:
 except:
     from django.db.models.constants import LOOKUP_SEP
 
-class HStoreConstraint ():
-    
-    value_operators = { 'exact': '=', 'iexact':'=', 'in': 'IN', 'lt': '<', 'lte': '<=', 'gt': '>', 'gte': '>=' }
-    
+
+class HStoreConstraint():
+
+    value_operators = {'exact': '=', 'iexact':'=', 'in': 'IN', 'lt': '<', 'lte': '<=', 'gt': '>', 'gte': '>='}
+
     def __init__(self, alias, field, value, lookup_type, key=None):
-        
+
         self.lvalue = '%s'
         self.alias = alias
         self.field = field
         self.values = [value]
-        
+
         if lookup_type == 'contains':
             if isinstance(value, basestring):
                 self.operator = '?'
@@ -49,7 +50,7 @@ class HStoreConstraint ():
             else:
                 raise ValueError('invalid value %r' % test_value)
             if cast_type:
-                self.lvalue = "CAST(NULLIF(%%s->'%s','') AS %s)" %  (key, cast_type)
+                self.lvalue = "CAST(NULLIF(%%s->'%s','') AS %s)" % (key, cast_type)
             elif lookup_type == 'iexact':
                 self.lvalue = "lower(%%s->'%s')" % key
                 self.values = [value.lower()]
@@ -57,29 +58,30 @@ class HStoreConstraint ():
                 self.lvalue = "%%s->'%s'" % key
         else:
             raise TypeError('invalid lookup type')
-    
-    def sql_for_column (self, qn, connection):
+
+    def sql_for_column(self, qn, connection):
         if self.alias:
             return '%s.%s' % (qn(self.alias), qn(self.field))
         else:
             return qn(self.field)
-    
-    def as_sql (self, qn=None, connection=None):
+
+    def as_sql(self, qn=None, connection=None):
         lvalue = self.lvalue % self.sql_for_column(qn, connection)
         expr = '%s %s %%s' % (lvalue, self.operator)
         return (expr, self.values)
 
-class HQ (tree.Node):
-    
+
+class HQ(tree.Node):
+
     AND = 'AND'
     OR = 'OR'
     default = AND
     query_terms = ['exact', 'iexact', 'lt', 'lte', 'gt', 'gte', 'in', 'contains']
-    
-    def __init__ (self, **kwargs):
+
+    def __init__(self, **kwargs):
         super(HQ, self).__init__(children=kwargs.items())
-    
-    def _combine (self, other, conn):
+
+    def _combine(self, other, conn):
         if not isinstance(other, HQ):
             raise TypeError(other)
         obj = type(self)()
@@ -98,11 +100,11 @@ class HQ (tree.Node):
         obj.add(self, self.AND)
         obj.negate()
         return obj
-    
-    def add_to_query (self, query, used_aliases):
+
+    def add_to_query(self, query, used_aliases):
         self.add_to_node(query.where, query, used_aliases)
-    
-    def add_to_node (self, where_node, query, used_aliases):
+
+    def add_to_node(self, where_node, query, used_aliases):
         for child in self.children:
             if  isinstance(child, HQ):
                 node = query.where_class()
@@ -113,7 +115,7 @@ class HQ (tree.Node):
                 parts = field.split(LOOKUP_SEP)
                 if not parts:
                     raise FieldError("Cannot parse keyword query %r" % field)
-                lookup_type = self.query_terms[0] # Default lookup type
+                lookup_type = self.query_terms[0]  # Default lookup type
                 num_parts = len(parts)
                 if len(parts) > 1 and parts[-1] in self.query_terms:
                     # Traverse the lookup query to distinguish related fields from
@@ -137,20 +139,21 @@ class HQ (tree.Node):
                                 break
                 if lookup_type == 'contains':
                     key = None
-                else: 
+                else:
                     key = parts[-1]
                     parts = parts[:-1]
                 opts = query.get_meta()
                 alias = query.get_initial_alias()
-                field, target, opts, join_list, last, extra = query.setup_joins(parts, opts, alias, True) 
+                field, target, opts, join_list, last, extra = query.setup_joins(parts, opts, alias, True)
                 col, alias, join_list = query.trim_joins(target, join_list, last, False, False)
                 where_node.add(HStoreConstraint(alias, col, value, lookup_type, key), self.connector)
         if self.negated:
             where_node.negate()
 
-def add_hstore (queryset, field, key, name=None):
+
+def add_hstore(queryset, field, key, name=None):
     assert queryset.query.can_filter(), "Cannot change a query once a slice has been taken"
     name = name or key
     clone = queryset._clone()
-    clone.query.add_extra({ name: "%s -> '%s'" % (field, key) }, None, None, None, None, None)
+    clone.query.add_extra({name: "%s -> '%s'" % (field, key)}, None, None, None, None, None)
     return clone

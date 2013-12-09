@@ -9,9 +9,11 @@ class Item (models.Model):
     data = fields.HStoreField()
 admin.site.register(Item)
 
+
 class Related (models.Model):
     item = models.ForeignKey(Item)
 admin.site.register(Related)
+
 
 class GeoItem (models.Model):
     name = models.CharField(max_length=64)
