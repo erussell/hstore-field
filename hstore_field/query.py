@@ -11,7 +11,7 @@ except:
 
 class HStoreConstraint():
 
-    value_operators = {'exact': '=', 'iexact':'=', 'in': 'IN', 'lt': '<', 'lte': '<=', 'gt': '>', 'gte': '>='}
+    value_operators = {'exact': '=', 'iexact': '=', 'in': 'IN', 'lt': '<', 'lte': '<=', 'gt': '>', 'gte': '>='}
 
     def __init__(self, alias, field, value, lookup_type, key=None):
 
