@@ -31,7 +31,7 @@ class HStoreConstraint():
         elif lookup_type in self.value_operators:
             self.operator = self.value_operators[lookup_type]
             if self.operator == 'IN':
-                test_value = value[0]
+                test_value = value[0] if len(value) > 0 else ''
                 self.values = [tuple(value)]
             else:
                 test_value = value
@@ -54,6 +54,9 @@ class HStoreConstraint():
             elif lookup_type == 'iexact':
                 self.lvalue = "lower(%%s->'%s')" % key
                 self.values = [value.lower()]
+            elif lookup_type == 'in' and not value:
+                self.operator = '?'
+                self.values = [key]
             else:
                 self.lvalue = "%%s->'%s'" % key
         else:
