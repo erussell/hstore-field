@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='hstore-field',
-    version='1.0.5',
+    version='1.0.6',
     description="Support for PostgreSQL's hstore for Django.",
     long_description=open('README.md').read(),
     author='Eric Russell, Anant Asthana',

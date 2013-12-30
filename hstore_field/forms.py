@@ -1,9 +1,9 @@
 import datetime
+import json
 import numbers
 from django import forms
 from django.forms import widgets
 from django.forms.util import flatatt, ValidationError
-from django.utils import simplejson
 from django.utils.encoding import force_unicode
 from django.utils.safestring import mark_safe
 from django.utils.html import conditional_escape
@@ -24,7 +24,7 @@ def to_hstore(obj):
         raise TypeError("%r is not hstore serializable" % (obj,))
 
 
-class HstoreEncoder(simplejson.JSONEncoder):
+class HstoreEncoder(json.JSONEncoder):
     def default(self, obj):
         return to_hstore(obj)
 
@@ -39,7 +39,7 @@ class HstoreWidget(widgets.Widget):
         if value is None:
             value = ''
         elif not isinstance(value, unicode):
-            value = simplejson.dumps(value, indent=2, cls=HstoreEncoder)
+            value = json.dumps(value, indent=2, cls=HstoreEncoder)
         final_attrs = self.build_attrs(attrs, name=name)
         return mark_safe(u'<textarea%s>%s</textarea>' % (flatatt(final_attrs), conditional_escape(force_unicode(value))))
 
@@ -59,7 +59,7 @@ class HstoreField (forms.Field):
             value = 'null'
         super(HstoreField, self).clean(value)
         try:
-            value = simplejson.loads(value)
+            value = json.loads(value)
         except ValueError:
             raise ValidationError(self.error_messages['invalid'])
         return value
