@@ -7,7 +7,7 @@ setup(
     long_description=open('README.rst').read(),
     author='Eric Russell, Anant Asthana',
     author_email='erussell@pobox.com,anant.asty@gmail.com',
-    url='http://github.com/anantasty/hstore-field',
+    url='http://github.com/erussell/hstore-field',
     packages=['hstore_field'],
     include_package_data=True,
     license='BSD',
