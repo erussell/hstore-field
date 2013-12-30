@@ -1,7 +1,7 @@
 hstore-field
 ============
 
-hstore-field is a library which integrates the ```hstore```_ extension
+hstore-field is a library which integrates the hstore_ extension
 of PostgreSQL into Django, assuming one is using Django 1.3-1.5,
 PostgreSQL 9.0+, and Psycopg 2.3+.
 
@@ -41,14 +41,17 @@ Limitations
    the default. One workaround is to add the column by putting the SQL
    directly in the migration
 
-``python     def forwards(self, orm):         db.execute('ALTER TABLE "[table]" ADD COLUMN "[column]" hstore NOT NULL DEFAULT hstore(array[]::varchar[]);')``
+   .. code:: python     
+   
+      def forwards(self, orm):         
+         db.execute('ALTER TABLE "[table]" ADD COLUMN "[column]" hstore NOT NULL DEFAULT hstore(array[]::varchar[]);')
 
-Another alternative is to add the field with ``null=True``, populate the
-field, then set ``null=False``. This is actually considered good
-practice in general, because default values can cause unexpected
-problems.
+   Another alternative is to add the field with ``null=True``, populate the
+   field, then set ``null=False``. This is actually considered good
+   practice in general, because default values can cause unexpected
+   problems.
 
-.. _``hstore``: http://www.postgresql.org/docs/9.0/interactive/hstore.html
+.. _hstore: http://www.postgresql.org/docs/9.0/interactive/hstore.html
 .. _removed the ability to create custom Q-like objects: https://github.com/django/django/commit/d3f00bd5706b35961390d3814dd7e322ead3a9a3#diff-0edd853580d56db07e4020728d59e193L1201
 .. _jordanm/django-hstore: http://github.com/jordanm/django-hstore
 .. _niwibe/django-orm-extensions: https://github.com/niwibe/django-orm-extensions
@@ -61,9 +64,12 @@ Running the tests
 
     $ python manage.py test test_hstore_field 
 
-For this to work 1. hstore must be installed in your PostgreSQL contrib
-folder 1. If you are running PostgreSQL 9.0, the directory containing
-``pg_config`` must be on your ``PATH``
+For this to work 
+
+1. hstore must be installed in your PostgreSQL contrib
+   folder 
+2. If you are running PostgreSQL 9.0, the directory containing
+   ``pg_config`` must be on your ``PATH``
 
 Usage
 -----
