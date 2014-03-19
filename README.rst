@@ -5,12 +5,15 @@ hstore-field is a library which integrates the hstore_ extension
 of PostgreSQL into Django, assuming one is using Django 1.3-1.5,
 PostgreSQL 9.0+, and Psycopg 2.3+.
 
-hstore-field is not compatible with Django 1.6 and above, because the
-latest ORM refactor `removed the ability to create custom Q-like
-objects`_. I'm currently seeking a work-around.
+**hstore-field is not compatible with Django 1.6 or later**, because 
+the latest ORM refactor `removed the ability to create custom Q-like
+objects`_. Unless support for custom Q-like objects is restored to
+the Django ORM, hstore-field will have to become unsupported. If you 
+need support for Django 1.6 or above, I recommend you switch to 
+`djangonauts/django-hstore`_.
 
 hstore-field draws some inspiration from `jordanm/django-hstore`_ and
-`niwibe/django-orm-extensions`_, but it uses a completely different
+niwibe/django-orm-extensions, but it uses a completely different
 mechanism for extending Django, which has the following advantages:
 
 1. Does not require a custom database backend (at the cost of not
@@ -54,7 +57,7 @@ Limitations
 .. _hstore: http://www.postgresql.org/docs/9.0/interactive/hstore.html
 .. _removed the ability to create custom Q-like objects: https://github.com/django/django/commit/d3f00bd5706b35961390d3814dd7e322ead3a9a3#diff-0edd853580d56db07e4020728d59e193L1201
 .. _jordanm/django-hstore: http://github.com/jordanm/django-hstore
-.. _niwibe/django-orm-extensions: https://github.com/niwibe/django-orm-extensions
+.. _djangonauts/django-hstore: http://github.com/djangonauts/django-hstore
 
 
 Running the tests
